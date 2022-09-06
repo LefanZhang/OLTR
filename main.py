@@ -9,7 +9,8 @@ from utils import source_import
 # ================
 # LOAD CONFIGURATIONS
 
-data_root = {'ImageNet': '/home/public/public_dataset/ILSVRC2014/Img',
+data_root = {#'ImageNet': '/home/public/public_dataset/ILSVRC2014/Img',
+             'ImageNet': '/data1/ImageNet',
              'Places': '/home/public/dataset/Places365'}
 
 parser = argparse.ArgumentParser()

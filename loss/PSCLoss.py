@@ -11,7 +11,7 @@ class PSCLoss(nn.Module):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         feat = F.normalize(feat, dim=1) # normalize to 1
         batch_size, feat_dim = feat.shape
-        num_classes, _ = prototypes.shape
+        num_classes, k, _ = prototypes.shape    # (num_classes, k, feat_dim)
         mask = torch.zeros(batch_size, num_classes).to(device).scatter_(1, label.view(-1, 1), 1) # (batch_size, num_classes)
         # print(mask)
         # print(mask.shape)
@@ -25,8 +25,14 @@ class PSCLoss(nn.Module):
         # print(weight)
 
 
-        logits = feat.mm(prototypes.T) / self.temp    # (batch_size, num_classes)
+        # logits = feat.mm(prototypes.T) / self.temp    # (batch_size, num_classes)
         # print(logits)
+
+        logits, _ = torch.matmul(prototypes, feat.T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
+        # print(torch.matmul(prototypes, feat.T).permute(2, 0, 1))
+        logits = logits / self.temp
+        # print(logits)
+
         positive_logits = torch.sum(logits*mask, dim=1) # (batch_size)
         # print(positive_logits)
         # negative_logits = torch.sum(torch.exp(logits), dim=1)   # (batch_size)
@@ -52,7 +58,7 @@ if __name__ == '__main__':
     feat_dim = 10
     feat = torch.randn(batch_size, feat_dim)
     label = torch.tensor([2, 1, 3, 0])
-    prototypes = torch.randn(num_classes, feat_dim)
+    prototypes = torch.randn(num_classes, 2, feat_dim)
     probs = torch.tensor([[0.1, 0.2, 0.3, 0.4, 0],
                           [0.2, 0.4, 0, 0.1, 0.3], 
                           [0.4, 0, 0.3, 0.1, 0.2],

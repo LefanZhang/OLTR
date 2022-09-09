@@ -50,6 +50,6 @@ memory = {}
 # memory['init_centroids'] = False
 memory['prototypes'] = True
 memory['init_prototypes'] = True
-memory['prototypes_num'] = 1
+memory['prototypes_num'] = 3
 memory['ema'] = 0.9
 config['memory'] = memory

@@ -47,7 +47,7 @@ class model ():
                 #     self.centroids_cal(self.data['train_plain'])
 
                 self.prototypes = self.init_prototypes()
-                #self.prototypes = torch.randn(self.training_opt['num_classes'], self.training_opt['feature_dim'])
+                # self.prototypes = torch.randn(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
                 print('Prototypes initialized!')
                 print('Shape:', self.prototypes.shape)
                 print('Initialized prototype visualization:', self.prototypes[:3])
@@ -88,8 +88,12 @@ class model ():
                 
         prototypes /= class_count.view(-1, 1)
 
-        if self.memory['prototypes_num'] != 1:
-            print('Multi prototypes have not been implemented!')
+        # if self.memory['prototypes_num'] != 1:
+        # print('Multi prototypes have not been implemented!')
+        prototypes = prototypes.view(self.training_opt['num_classes'], 1, -1).repeat(1, self.memory['prototypes_num'], 1)
+        # append noise
+        prototypes += torch.randn(prototypes.shape) * 0.1   # mean = 0, std = 0.1
+
         
         return prototypes.to(self.device)
         
@@ -202,8 +206,12 @@ class model ():
 
 
                 # print(self.networks['feat_model'].module.mlp)
-                self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes).detach()
-                self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1)   # normalize to 1
+                # if self.memory['prototypes_num'] == 1:
+                #     self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes).detach()
+                #     self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1)   # normalize to 1
+                # else:
+                self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes.view(-1, self.training_opt['feature_dim'])).detach()
+                self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1).view(self.training_opt['num_classes'], -1, self.training_opt['feature_dim'])   # normalize to 1
 
             # Calculate logits with classifier
             self.logits = self.networks['classifier'](self.features)
@@ -384,6 +392,8 @@ class model ():
                 if step == self.epoch_steps:
                     break
                 
+                # if step == 20:
+                #     break
 
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
 
@@ -458,19 +468,21 @@ class model ():
         with torch.set_grad_enabled(False):
             _, pred = torch.max(self.logits, dim=1)  # (batch_size)
             mask = (pred.view(-1) == labels.view(-1))
-            cls_num = [0]*self.training_opt['num_classes']
-            prototypes_for_update = torch.zeros(self.training_opt['num_classes'], self.training_opt['feature_dim']).to(self.device)
+            cls_num = [[0]*self.memory['prototypes_num'] for _ in range(self.training_opt['num_classes'])]
+            prototypes_for_update = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
             for i, feature in enumerate(self.features):
                 if not mask[i]:
                     continue
-                prototypes_for_update[pred[i]] += feature
-                cls_num[pred[i]] += 1
+                _, which_to_update = self.prototypes[pred[i]].mm(feature.view(-1, 1)).view(-1).max(dim=0)
+                prototypes_for_update[pred[i]][which_to_update] += feature
+                cls_num[pred[i]][which_to_update] += 1
 
             for cls_idx in range(self.training_opt['num_classes']):
-                if cls_num[cls_idx]:
-                    self.prototypes[cls_idx] = self.prototypes[cls_idx] * self.memory['ema'] + prototypes_for_update[cls_idx] / cls_num[cls_idx] * (1 - self.memory['ema'])
+                for pro_idx in range(self.memory['prototypes_num']):
+                    if cls_num[cls_idx][pro_idx]:
+                        self.prototypes[cls_idx][pro_idx] = self.prototypes[cls_idx][pro_idx] * self.memory['ema'] + prototypes_for_update[cls_idx][pro_idx] / cls_num[cls_idx][pro_idx] * (1 - self.memory['ema'])
 
-            print('{}/{} samples are used to update prototypes!'.format(sum(cls_num), self.logits.shape[0]))
+            print('{}/{} samples are used to update prototypes!'.format(sum([sum(line) for line in cls_num]), self.logits.shape[0]))
      
         return
 
@@ -666,10 +678,11 @@ class model ():
                 self.batch_forward_for_CoMix(inputs, labels, phase=phase)
 
                 # complement with prototypes
-                prototypes_for_eval = F.normalize(self.prototypes, dim=1)   # (num_classes, feat_dim)
-                complementary_logits = F.normalize(self.features, dim=1).mm(prototypes_for_eval.T)   # (batch_size, num_classes)
-                self.logits = torch.where(self.logits > complementary_logits, self.logits, complementary_logits)  # choose the closer one for prediction, max
-                # self.logits = (self.logits + complementary_logits) / 2    # average
+                prototypes_for_eval = F.normalize(self.prototypes.view(-1, self.training_opt['feature_dim']), dim=1).view(self.training_opt['num_classes'], -1, self.training_opt['feature_dim'])   # (num_classes, feat_dim)
+                # complementary_logits = F.normalize(self.features, dim=1).mm(prototypes_for_eval.T)   # (batch_size, num_classes)
+                complementary_logits, _ = prototypes_for_eval.matmul(F.normalize(self.features, dim=1).T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
+                # self.logits = torch.where(self.logits > complementary_logits, self.logits, complementary_logits)  # choose the closer one for prediction, max
+                self.logits = (self.logits + complementary_logits) / 2    # average
 
                 self.total_logits = torch.cat((self.total_logits, self.logits))
                 self.total_labels = torch.cat((self.total_labels, labels))

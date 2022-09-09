@@ -83,7 +83,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, use_modulatedatt=False, use_fc=False, dropout=None):
+    def __init__(self, block, layers, use_modulatedatt=False, use_fc=False, dropout=None, use_mlp=None):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -112,6 +112,13 @@ class ResNet(nn.Module):
         if self.use_modulatedatt:
             print('Using self attention.')
             self.modulatedatt = ModulatedAttLayer(in_channels=512 * block.expansion)
+
+        self.use_mlp = use_mlp
+        if self.use_mlp:
+            print('Using mlp to transform feature.')
+            feat_dim = 512
+            self.mlp = nn.Sequential(nn.Linear(512, 512), nn.BatchNorm1d(512), nn.ReLU(inplace=True),
+                                      nn.Linear(512, feat_dim))
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -163,5 +170,9 @@ class ResNet(nn.Module):
 
         if self.use_dropout:
             x = self.dropout(x)
+
+        if self.use_mlp:
+            feat_mlp = F.normalize(self.mlp(x), dim=1)
+            return x, feat_mlp
 
         return x, feature_maps

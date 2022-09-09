@@ -2,9 +2,25 @@ import os
 import argparse
 import pprint
 from data import dataloader
-from run_networks import model
+#from run_networks import model
+from run_networks_for_CoMix import model
 import warnings
 from utils import source_import
+
+import torch
+import numpy as np
+import random
+
+
+# random seeds
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.manual_seed(0)
+torch.cuda.manual_seed_all(0)
+np.random.seed(0)
+random.seed(0)
+torch.manual_seed(0)
+torch.cuda.manual_seed(0)
 
 # ================
 # LOAD CONFIGURATIONS
@@ -18,7 +34,11 @@ parser.add_argument('--config', default='./config/Imagenet_LT/Stage_1.py', type=
 parser.add_argument('--test', default=False, action='store_true')
 parser.add_argument('--test_open', default=False, action='store_true')
 parser.add_argument('--output_logits', default=False)
+parser.add_argument('--gpu', default=False, type=int)
+parser.add_argument('--trial', default=1, type=int)
 args = parser.parse_args()
+
+os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
 test_mode = args.test
 test_open = args.test_open
@@ -27,6 +47,7 @@ if test_open:
 output_logits = args.output_logits
 
 config = source_import(args.config).config
+config['training_opt']['log_dir'] += '/trial_{}'.format(args.trial) # decide which experiment it is
 training_opt = config['training_opt']
 # change
 relatin_opt = config['memory']
@@ -51,11 +72,12 @@ if not test_mode:
                                     batch_size=training_opt['batch_size'],
                                     sampler_dic=sampler_dic,
                                     num_workers=training_opt['num_workers'])
-            for x in (['train', 'val', 'train_plain'] if relatin_opt['init_centroids'] else ['train', 'val'])}
+            #for x in (['train', 'val', 'train_plain'] if relatin_opt['init_centroids'] else ['train', 'val'])}
+            for x in (['train', 'val', 'train_plain'] if relatin_opt['init_prototypes'] else ['train', 'val'])}
 
     training_model = model(config, data, test=False)
 
-    training_model.train()
+    training_model.train_for_CoMix()
 
 else:
 
@@ -74,8 +96,9 @@ else:
     
     training_model = model(config, data, test=True)
     training_model.load_model()
-    training_model.eval(phase='test', openset=test_open)
-    
+    # training_model.eval_for_CoMix(phase='test', openset=test_open)
+    training_model.eval_with_prototypes(phase='test', openset=test_open)
+
     if output_logits:
         training_model.output_logits(openset=test_open)
         

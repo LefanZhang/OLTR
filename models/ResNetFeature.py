@@ -172,7 +172,8 @@ class ResNet(nn.Module):
             x = self.dropout(x)
 
         if self.use_mlp:
-            feat_mlp = F.normalize(self.mlp(x), dim=1)
+            # feat_mlp = F.normalize(self.mlp(x), dim=1)  # have been normalized
+            feat_mlp = self.mlp(x)
             return x, feat_mlp
 
         return x, feature_maps

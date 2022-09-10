@@ -46,7 +46,7 @@ class model ():
                 # self.criterions['FeatureLoss'].centroids.data = \
                 #     self.centroids_cal(self.data['train_plain'])
 
-                self.prototypes = self.init_prototypes()
+                self.prototypes = self.init_prototypes()    # not normalized
                 # self.prototypes = torch.randn(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
                 print('Prototypes initialized!')
                 print('Shape:', self.prototypes.shape)
@@ -92,7 +92,7 @@ class model ():
         # print('Multi prototypes have not been implemented!')
         prototypes = prototypes.view(self.training_opt['num_classes'], 1, -1).repeat(1, self.memory['prototypes_num'], 1)
         # append noise
-        prototypes += torch.randn(prototypes.shape) * 0.1   # mean = 0, std = 0.1
+        prototypes += torch.randn(prototypes.shape) * self.memory['std']   # mean = 0, std = 0.1
 
         
         return prototypes.to(self.device)
@@ -255,7 +255,7 @@ class model ():
 
 
         if 'PSCLoss' in self.criterions.keys():
-            self.probs = F.softmax(self.logits.detach(), dim=1)
+            self.probs = F.softmax(self.logits.detach(), dim=1) # only based on classifier, without prototypes
 
             self.loss_psc = self.criterions['PSCLoss'](self.feat_mlp, labels, self.prototypes_mlp, self.probs)
             self.loss_psc = self.loss_psc * self.criterion_weights['PSCLoss']

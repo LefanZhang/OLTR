@@ -13,6 +13,7 @@ training_opt['feature_dim'] = 512
 training_opt['open_threshold'] = 0.1
 training_opt['sampler'] = None
 training_opt['scheduler_params'] = {'step_size': 30, 'gamma': 0.1}  # lr decay
+training_opt['schedule_loss_weight'] = True
 config['training_opt'] = training_opt
 
 networks = {}

@@ -366,6 +366,16 @@ class model ():
         print('Done')
 
 
+    def schedule_loss_weight(self, epoch, end_epoch):
+        if 'PerformanceLoss' in self.criterions and 'PSCLoss' in self.criterions:
+            alpha = (epoch / end_epoch)**2
+            self.criterion_weights['PerformanceLoss'] = alpha
+            self.criterion_weights['PSCLoss'] = 1 - alpha
+            print('Losses\' weights are scheduled:')
+            print('PerformanceLoss weight: {}'.format(alpha))
+            print('PSCLoss weight: {}'.format(1-alpha))
+
+
     def train_for_CoMix(self):
 
         # When training the network
@@ -384,6 +394,9 @@ class model ():
 
         # Loop over epochs
         for epoch in range(1, end_epoch + 1):
+
+            if self.training_opt['schedule_loss_weight']:
+                self.schedule_loss_weight(epoch, end_epoch)
 
             for model in self.networks.values():
                 model.train()

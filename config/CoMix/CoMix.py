@@ -52,5 +52,5 @@ memory['prototypes'] = True
 memory['init_prototypes'] = True
 memory['prototypes_num'] = 3
 memory['ema'] = 0.9
-memory['std'] = 0.01
+memory['std'] = 0.1
 config['memory'] = memory

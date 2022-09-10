@@ -781,6 +781,26 @@ class model ():
             weights = {k: weights[k] for k in weights if k in model.state_dict()}
             # model.load_state_dict(model_state[key])
             model.load_state_dict(weights)
+    
+    def load_model_for_CoMix(self):
+            
+        model_dir = os.path.join(self.training_opt['log_dir'], 
+                                 'final_model_checkpoint.pth')
+        
+        print('Validation on the best model.')
+        print('Loading model from %s' % (model_dir))
+        
+        checkpoint = torch.load(model_dir)          
+        model_state = checkpoint['state_dict_best']
+        
+        self.prototypes = checkpoint['prototypes'] if 'prototypes' in checkpoint else None
+        
+        for key, model in self.networks.items():
+
+            weights = model_state[key]
+            weights = {k: weights[k] for k in weights if k in model.state_dict()}
+            # model.load_state_dict(model_state[key])
+            model.load_state_dict(weights)
         
     def save_model(self, epoch, best_epoch, best_model_weights, best_acc, centroids=None):
         

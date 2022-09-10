@@ -413,8 +413,10 @@ class model ():
                     # Output minibatch training results
                     if step % self.training_opt['display_step'] == 0:
 
-                        minibatch_loss_feat = self.loss_feat.item() \
-                            if 'FeatureLoss' in self.criterions.keys() else None
+                        # minibatch_loss_feat = self.loss_feat.item() \
+                        #     if 'FeatureLoss' in self.criterions.keys() else None
+                        minibatch_loss_psc = self.loss_psc.item() \
+                            if 'PSCLoss' in self.criterions.keys() else None
                         minibatch_loss_perf = self.loss_perf.item()
                         _, preds = torch.max(self.logits, 1)
                         minibatch_acc = mic_acc_cal(preds, labels)
@@ -423,8 +425,8 @@ class model ():
                                      % (epoch, self.training_opt['num_epochs']),
                                      'Step: %5d' 
                                      % (step),
-                                     'Minibatch_loss_feature: %.3f' 
-                                     % (minibatch_loss_feat) if minibatch_loss_feat else '',
+                                     'Minibatch_loss_psc: %.3f' 
+                                     % (minibatch_loss_psc) if minibatch_loss_psc else '',
                                      'Minibatch_loss_performance: %.3f' 
                                      % (minibatch_loss_perf),
                                      'Minibatch_accuracy_micro: %.3f'
@@ -679,6 +681,7 @@ class model ():
 
                 # complement with prototypes
                 prototypes_for_eval = F.normalize(self.prototypes.view(-1, self.training_opt['feature_dim']), dim=1).view(self.training_opt['num_classes'], -1, self.training_opt['feature_dim'])   # (num_classes, feat_dim)
+                prototypes_for_eval *= self.networks['classifier'].module.scale # to have the same magnitude of self.logits
                 # complementary_logits = F.normalize(self.features, dim=1).mm(prototypes_for_eval.T)   # (batch_size, num_classes)
                 complementary_logits, _ = prototypes_for_eval.matmul(F.normalize(self.features, dim=1).T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
                 # self.logits = torch.where(self.logits > complementary_logits, self.logits, complementary_logits)  # choose the closer one for prediction, max

@@ -41,16 +41,21 @@ class model ():
             self.scheduler_params = self.training_opt['scheduler_params']
             self.model_optimizer, \
             self.model_optimizer_scheduler = self.init_optimizers(self.model_optim_params_list)
-            self.init_criterions()
+
+            
             if self.memory['init_prototypes']:   # initialize prototypes
                 # self.criterions['FeatureLoss'].centroids.data = \
                 #     self.centroids_cal(self.data['train_plain'])
 
-                self.prototypes = self.init_prototypes()    # not normalized
+                self.prototypes, self.sample_per_class = self.init_prototypes()    # not normalized
                 # self.prototypes = torch.randn(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
                 print('Prototypes initialized!')
                 print('Shape:', self.prototypes.shape)
                 print('Initialized prototype visualization:', self.prototypes[:3])
+
+            if 'Balanced' in self.config['criterions']['PerformanceLoss']['def_file']:
+                self.config['criterions']['PerformanceLoss']['loss_params']['sample_per_class'] = self.sample_per_class
+            self.init_criterions()
 
             
         # Set up log file
@@ -60,6 +65,7 @@ class model ():
             self.log_file = os.path.join(self.training_opt['log_dir'], 'log_test.txt')
         if os.path.isfile(self.log_file):
             os.remove(self.log_file)
+    
     
 
     def init_prototypes(self):
@@ -95,7 +101,7 @@ class model ():
         prototypes += torch.randn(prototypes.shape) * self.memory['std']   # mean = 0, std = 0.1
 
         
-        return prototypes.to(self.device)
+        return prototypes.to(self.device), class_count
         
 
         

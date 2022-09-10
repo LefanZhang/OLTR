@@ -26,7 +26,7 @@ torch.cuda.manual_seed(0)
 # LOAD CONFIGURATIONS
 
 data_root = {#'ImageNet': '/home/public/public_dataset/ILSVRC2014/Img',
-             'ImageNet': '/data1/ImageNet',
+             'ImageNet': '/data0/ImageNet',
              'Places': '/home/public/dataset/Places365'}
 
 parser = argparse.ArgumentParser()
@@ -95,7 +95,7 @@ else:
 
     
     training_model = model(config, data, test=True)
-    training_model.load_model()
+    training_model.load_model_for_CoMix()
     # training_model.eval_for_CoMix(phase='test', openset=test_open)
     training_model.eval_with_prototypes(phase='test', openset=test_open)
 

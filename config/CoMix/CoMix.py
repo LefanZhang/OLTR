@@ -17,6 +17,7 @@ training_opt['schedule_loss_weight'] = False
 training_opt['eval_with_prototypes'] = 1    # 0 for max, 1 for avg
 training_opt['discriminative_feature_space'] = True
 training_opt['balanced_feature_space'] = False
+training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
 config['training_opt'] = training_opt
 
 networks = {}
@@ -27,7 +28,7 @@ networks['feat_model'] = {'def_file': './models/ResNet10Feature.py',
                           'params': feature_param,
                           'optim_params': feature_optim_param,
                           'fix': False}
-classifier_param = {'in_dim': training_opt['feature_dim'], 'num_classes': training_opt['num_classes'], 'scale': 50,
+classifier_param = {'in_dim': training_opt['feature_dim'], 'num_classes': training_opt['num_classes'], 'scale': 16, # scale default=16
                     'stage1_weights': False, 'dataset': training_opt['dataset']}
 classifier_optim_param = {'lr': 0.1, 'momentum': 0.9, 'weight_decay': 0.0005}
 networks['classifier'] = {'def_file': './models/CosNormClassifier_for_CoMix.py',

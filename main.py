@@ -1,7 +1,7 @@
 import os
 import argparse
 import pprint
-from data import dataloader
+from data import dataloader_for_CoMix as dataloader
 #from run_networks import model
 from run_networks_for_CoMix import model
 import warnings
@@ -71,7 +71,8 @@ if not test_mode:
     data = {x: dataloader.load_data(data_root=data_root[dataset.rstrip('_LT')], dataset=dataset, phase=x, 
                                     batch_size=training_opt['batch_size'],
                                     sampler_dic=sampler_dic,
-                                    num_workers=training_opt['num_workers'])
+                                    num_workers=training_opt['num_workers'],
+                                    aug_for_psc=training_opt['aug_for_psc'])
             #for x in (['train', 'val', 'train_plain'] if relatin_opt['init_centroids'] else ['train', 'val'])}
             for x in (['train', 'val', 'train_plain'] if relatin_opt['init_prototypes'] else ['train', 'val'])}
 
@@ -90,7 +91,8 @@ else:
                                     sampler_dic=None, 
                                     test_open=test_open,
                                     num_workers=training_opt['num_workers'],
-                                    shuffle=False)
+                                    shuffle=False,
+                                    aug_for_psc=training_opt['aug_for_psc'])
             for x in ['train', 'test']}
 
     

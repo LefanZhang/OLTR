@@ -48,7 +48,7 @@ class model ():
                 #     self.centroids_cal(self.data['train_plain'])
 
                 self.prototypes, self.sample_per_class = self.init_prototypes()    # not normalized
-                # self.prototypes = torch.randn(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
+                # self.prototypes, self.sample_per_class = torch.randn(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device), torch.ones(self.training_opt['num_classes'])
                 print('Prototypes initialized!')
                 print('Shape:', self.prototypes.shape)
                 print('Initialized prototype visualization:', self.prototypes[:3])
@@ -74,7 +74,7 @@ class model ():
 
 
         bar = tqdm(total=self.epoch_steps+1)
-        for step, (inputs, labels, _) in enumerate(self.data['train']):
+        for step, (inputs, _, _, _, labels, _) in enumerate(self.data['train']):
 
             inputs, labels = inputs.to(self.device), labels.to(self.device)
 
@@ -407,7 +407,7 @@ class model ():
             
             bar = tqdm(total=self.epoch_steps+1)
             # Iterate over dataset
-            for step, (inputs, labels, _) in enumerate(self.data['train']):
+            for step, (inputs, aug1, aug2, aug3, labels, _) in enumerate(self.data['train']):
 
                 # Break when step equal to epoch step
                 if step == self.epoch_steps:
@@ -415,6 +415,10 @@ class model ():
                 
                 # if step == 20:
                 #     break
+
+                inputs = torch.cat((inputs, aug1, aug2, aug3), dim=0)
+                # print(labels.shape)
+                labels = labels.repeat(4)
 
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
 

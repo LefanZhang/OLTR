@@ -26,7 +26,7 @@ class PSCLoss(nn.Module):
             # print(weight)
         
         if balanced:
-            balanced_negative_weight = sample_per_class.view(1, -1).repeat(batch_size, 1)    # (batch_size, num_classes)
+            balanced_negative_weight = sample_per_class.view(1, -1).repeat(batch_size, 1).to(device)    # (batch_size, num_classes)
             balanced_positive_weight = (balanced_negative_weight * mask).sum(dim=1) # (batch_size)
             balanced_weight = balanced_positive_weight.view(-1, 1).repeat(1, num_classes) / balanced_negative_weight    # (batch_size, num_classes)
 

@@ -26,6 +26,6 @@ class CosNorm_Classifier_CoMix(nn.Module):
         ew = self.weight / torch.norm(self.weight, 2, 1, keepdim=True)
         return torch.mm(self.scale * ex, ew.t())
 
-def create_model(feat_dim, num_classes=1000, stage1_weights=False, dataset=None, test=False, *args):
+def create_model(feat_dim, num_classes=1000, scale=16, stage1_weights=False, dataset=None, test=False, *args):
     print('Loading Cosine Norm Classifier For CoMix.')
-    return CosNorm_Classifier_CoMix(in_dims=feat_dim, out_dims=num_classes)
+    return CosNorm_Classifier_CoMix(in_dims=feat_dim, out_dims=num_classes, scale=scale)

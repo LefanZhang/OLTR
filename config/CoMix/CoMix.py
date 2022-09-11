@@ -14,9 +14,9 @@ training_opt['open_threshold'] = 0.1
 training_opt['sampler'] = None
 training_opt['scheduler_params'] = {'step_size': 30, 'gamma': 0.1}  # lr decay
 training_opt['schedule_loss_weight'] = False
-training_opt['eval_with_prototypes'] = 0    # 0 for max, 1 for avg
+training_opt['eval_with_prototypes'] = 1    # 0 for max, 1 for avg
 training_opt['discriminative_feature_space'] = True
-training_opt['balanced_feature_space'] = True
+training_opt['balanced_feature_space'] = False
 config['training_opt'] = training_opt
 
 networks = {}
@@ -27,7 +27,7 @@ networks['feat_model'] = {'def_file': './models/ResNet10Feature.py',
                           'params': feature_param,
                           'optim_params': feature_optim_param,
                           'fix': False}
-classifier_param = {'in_dim': training_opt['feature_dim'], 'num_classes': training_opt['num_classes'],
+classifier_param = {'in_dim': training_opt['feature_dim'], 'num_classes': training_opt['num_classes'], 'scale': 50,
                     'stage1_weights': False, 'dataset': training_opt['dataset']}
 classifier_optim_param = {'lr': 0.1, 'momentum': 0.9, 'weight_decay': 0.0005}
 networks['classifier'] = {'def_file': './models/CosNormClassifier_for_CoMix.py',
@@ -55,7 +55,7 @@ memory = {}
 # memory['init_centroids'] = False
 memory['prototypes'] = True
 memory['init_prototypes'] = True
-memory['prototypes_num'] = 3
+memory['prototypes_num'] = 4
 memory['ema'] = 0.9 # default 0.9
 memory['std'] = 0.1 # default 0.1
 config['memory'] = memory

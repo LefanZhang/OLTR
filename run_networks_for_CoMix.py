@@ -261,9 +261,11 @@ class model ():
 
 
         if 'PSCLoss' in self.criterions.keys():
+            discriminative, balanced = self.training_opt['discriminative_feature_space'], self.training_opt['balanced_feature_space']
+            
             self.probs = F.softmax(self.logits.detach(), dim=1) # only based on classifier, without prototypes
 
-            self.loss_psc = self.criterions['PSCLoss'](self.feat_mlp, labels, self.prototypes_mlp, self.probs)
+            self.loss_psc = self.criterions['PSCLoss'](self.feat_mlp, labels, self.prototypes_mlp, self.probs, self.sample_per_class, discriminative, balanced)
             self.loss_psc = self.loss_psc * self.criterion_weights['PSCLoss']
             self.loss += self.loss_psc
 
@@ -703,8 +705,10 @@ class model ():
                 prototypes_for_eval *= self.networks['classifier'].module.scale # to have the same magnitude of self.logits
                 # complementary_logits = F.normalize(self.features, dim=1).mm(prototypes_for_eval.T)   # (batch_size, num_classes)
                 complementary_logits, _ = prototypes_for_eval.matmul(F.normalize(self.features, dim=1).T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
-                # self.logits = torch.where(self.logits > complementary_logits, self.logits, complementary_logits)  # choose the closer one for prediction, max
-                self.logits = (self.logits + complementary_logits) / 2    # average
+                if self.training_opt['eval_with_prototypes'] == 0:
+                    self.logits = torch.where(self.logits > complementary_logits, self.logits, complementary_logits)  # choose the closer one for prediction, max
+                elif self.training_opt['eval_with_prototypes'] == 1:
+                    self.logits = (self.logits + complementary_logits) / 2    # average
 
                 self.total_logits = torch.cat((self.total_logits, self.logits))
                 self.total_labels = torch.cat((self.total_labels, labels))

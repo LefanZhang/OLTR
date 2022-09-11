@@ -7,7 +7,7 @@ class PSCLoss(nn.Module):
         super(PSCLoss, self).__init__()
         self.temp = temp
     
-    def forward(self, feat, label, prototypes, probs):
+    def forward(self, feat, label, prototypes, probs, sample_per_class, discriminative, balanced):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         feat = F.normalize(feat, dim=1) # normalize to 1
         batch_size, feat_dim = feat.shape
@@ -16,13 +16,20 @@ class PSCLoss(nn.Module):
         # print(mask)
         # print(mask.shape)
 
-        eps = 1e-3
-        GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + eps
-        # print(GT_probs)
-        modified_probs = torch.where(probs > GT_probs, probs, GT_probs)
-        # print(modified_probs)
-        weight = GT_probs / modified_probs  # (batch_size, num_classes)
-        # print(weight)
+        if discriminative:
+            eps = 1e-3
+            GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + eps
+            # print(GT_probs)
+            modified_probs = torch.where(probs > GT_probs, probs, GT_probs)
+            # print(modified_probs)
+            weight = GT_probs / modified_probs  # (batch_size, num_classes)
+            # print(weight)
+        
+        if balanced:
+            balanced_negative_weight = sample_per_class.view(1, -1).repeat(batch_size, 1)    # (batch_size, num_classes)
+            balanced_positive_weight = (balanced_negative_weight * mask).sum(dim=1) # (batch_size)
+            balanced_weight = balanced_positive_weight.view(-1, 1).repeat(1, num_classes) / balanced_negative_weight    # (batch_size, num_classes)
+
 
 
         # logits = feat.mm(prototypes.T) / self.temp    # (batch_size, num_classes)
@@ -38,7 +45,14 @@ class PSCLoss(nn.Module):
         # negative_logits = torch.sum(torch.exp(logits), dim=1)   # (batch_size)
         # print(negative_logits)
 
-        negative_logits = torch.sum(torch.exp(logits) * weight, dim=1)   # (batch_size), weighted with hard class mining
+        if discriminative and balanced:
+            negative_logits = torch.sum(torch.exp(logits) * weight * balanced_weight, dim=1)   # (batch_size), weighted with hard class mining and rebalancing
+        elif discriminative:
+            negative_logits = torch.sum(torch.exp(logits) * weight, dim=1)   # (batch_size), weighted with hard class mining
+        elif balanced:
+            negative_logits = torch.sum(torch.exp(logits) * balanced_weight, dim=1)   # (batch_size), weighted with rebalancing
+        else:
+            negative_logits = torch.sum(torch.exp(logits), dim=1)
 
         loss = - (positive_logits - torch.log(negative_logits)).mean()
 

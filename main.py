@@ -74,7 +74,7 @@ if not test_mode:
                                     num_workers=training_opt['num_workers'],
                                     aug_for_psc=training_opt['aug_for_psc'])
             #for x in (['train', 'val', 'train_plain'] if relatin_opt['init_centroids'] else ['train', 'val'])}
-            for x in (['train', 'val', 'train_plain'] if relatin_opt['init_prototypes'] else ['train', 'val'])}
+            for x in (['train', 'val'])}
 
     training_model = model(config, data, test=False)
 

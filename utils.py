@@ -99,6 +99,10 @@ def mic_acc_cal(preds, labels):
     acc_mic_top1 = (preds == labels).sum().item() / len(labels)
     return acc_mic_top1
 
+def mac_acc_cal(preds, labels):
+    return
+
+
 def class_count (data):
     labels = np.array(data.dataset.labels)
     class_data_num = []

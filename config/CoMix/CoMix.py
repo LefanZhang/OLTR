@@ -17,7 +17,7 @@ training_opt['schedule_loss_weight'] = False
 training_opt['eval_with_prototypes'] = 1    # 0 for max, 1 for avg
 training_opt['discriminative_feature_space'] = True
 training_opt['balanced_feature_space'] = False
-training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
+training_opt['aug_for_psc'] = 3 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
 config['training_opt'] = training_opt
 
 networks = {}

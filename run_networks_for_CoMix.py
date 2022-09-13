@@ -104,7 +104,7 @@ class model ():
         return prototypes.to(self.device), class_count
 
 
-    def reinit_prototypes(self):
+    def reinit_prototypes(self, mode=0):
         new_prototypes = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
         class_count = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num']).to(self.device)
 
@@ -135,10 +135,13 @@ class model ():
                 
         new_prototypes /= class_count.view(-1, self.memory['prototypes_num'], 1)
 
-        new_prototypes = (F.normalize(new_prototypes, dim=2) + F.normalize(self.prototypes, dim=2)) / 2 # avg
-
-        
-        return new_prototypes
+        if mode == 1:
+            return new_prototypes
+        elif mode == 0:
+            new_prototypes = (F.normalize(new_prototypes, dim=2) + F.normalize(self.prototypes, dim=2)) / 2 # avg
+            return new_prototypes
+        else:
+            return None
         
 
         
@@ -441,8 +444,12 @@ class model ():
                 self.schedule_loss_weight(epoch, end_epoch)
 
             if self.training_opt['pretrain']+1 == epoch:   # re-initiate prototypes
-                self.prototypes, _ = self.init_prototypes()
-                # self.prototypes = self.reinit_prototypes()
+                if self.training_opt['reinit'] == 0:
+                    self.prototypes = self.reinit_prototypes(mode=0)    # avg
+                elif self.training_opt['reinit'] == 1:
+                    self.prototypes = self.reinit_prototypes(mode=1)    # replace
+                elif self.training_opt['reinit'] == 2:
+                    self.prototypes, _ = self.init_prototypes()         # init
 
             for model in self.networks.values():
                 model.train()
@@ -483,7 +490,8 @@ class model ():
 
 
                     # update prototypes after each iteration
-                    self.update_prototypes(labels)
+                    if self.memory['prototypes']:
+                        self.update_prototypes(labels)
 
 
                     # Output minibatch training results
@@ -520,7 +528,10 @@ class model ():
 
             # After every epoch, validation
             # self.eval_for_CoMix(phase='val')
-            self.eval_with_prototypes(phase='val')
+            if self.training_opt['eval_with_prototypes'] == 2:
+                self.eval(phase='val')
+            else:
+                self.eval_with_prototypes(phase='val')
 
             # Under validation, the best model need to be updated
             if self.eval_acc_mic_top1 > best_acc:
@@ -594,9 +605,7 @@ class model ():
             with torch.set_grad_enabled(False):
 
                 # In validation or testing
-                self.batch_forward(inputs, labels, 
-                                   centroids=self.memory['centroids'],
-                                   phase=phase)
+                self.batch_forward_for_CoMix(inputs, labels, phase=phase)
                 self.total_logits = torch.cat((self.total_logits, self.logits))
                 self.total_labels = torch.cat((self.total_labels, labels))
                 self.total_paths = np.concatenate((self.total_paths, paths))

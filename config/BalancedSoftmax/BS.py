@@ -3,7 +3,7 @@ config = {}
 
 training_opt = {}
 training_opt['dataset'] = 'ImageNet_LT'
-training_opt['log_dir'] = './logs/CoMix/stage1'
+training_opt['log_dir'] = './logs/BS/stage1'
 training_opt['num_classes'] = 1000
 training_opt['batch_size'] = 128
 training_opt['num_workers'] = 8
@@ -14,13 +14,13 @@ training_opt['open_threshold'] = 0.1
 training_opt['sampler'] = None
 training_opt['scheduler_params'] = {'step_size': 30, 'gamma': 0.1}  # lr decay
 training_opt['schedule_loss_weight'] = False
-training_opt['eval_with_prototypes'] = 1    # 0 for max, 1 for avg
-training_opt['discriminative_feature_space'] = True
+training_opt['eval_with_prototypes'] = 2    # 0 for max, 1 for avg, 2 for original eval
+training_opt['discriminative_feature_space'] = False
 training_opt['balanced_feature_space'] = False
-training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
-training_opt['which_aug_to_use'] = [1,2,3]    # 1 for aug1, 2 for aug2, 3 for aug3
-training_opt['pretrain'] = 30   # apply PSC Loss after 30 epochs
-training_opt['reinit'] = 0  # 0 for avg, 1 for replace, 2 for using init
+training_opt['aug_for_psc'] = 3 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
+training_opt['which_aug_to_use'] = []    # 1 for aug1, 2 for aug2, 3 for aug3
+training_opt['pretrain'] = -1   # apply PSC Loss after 30 epochs
+training_opt['reinit'] = 2  # 0 for avg, 1 for replace, 2 for using init
 config['training_opt'] = training_opt
 
 networks = {}
@@ -53,18 +53,18 @@ criterions['PerformanceLoss'] = {'def_file': './loss/BalancedSoftmaxLoss.py', 'l
 #                              'optim_params': feat_loss_optim_param, 'weight': 0.01}
 
 
-psc_loss_param = {'temp': 0.1}
-criterions['PSCLoss'] = {'def_file': './loss/PSCLoss.py', 'loss_params': psc_loss_param,
-                        'optim_params': None, 'weight': 1.0}
+# psc_loss_param = {'temp': 0.1}
+# criterions['PSCLoss'] = {'def_file': './loss/PSCLoss.py', 'loss_params': psc_loss_param,
+#                         'optim_params': None, 'weight': 1.0}
 
 config['criterions'] = criterions
 
 memory = {}
 # memory['centroids'] = False
 # memory['init_centroids'] = False
-memory['prototypes'] = True
+memory['prototypes'] = False
 memory['init_prototypes'] = True
-memory['prototypes_num'] = 4
+memory['prototypes_num'] = 1
 memory['ema'] = 0.9 # default 0.9
 memory['std'] = 0.1 # default 0.1
 config['memory'] = memory

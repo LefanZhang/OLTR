@@ -99,7 +99,9 @@ else:
     training_model = model(config, data, test=True)
     training_model.load_model_for_CoMix()
     # training_model.eval_for_CoMix(phase='test', openset=test_open)
-    training_model.eval_with_prototypes(phase='test', openset=test_open)
+    if relatin_opt['prototypes']:
+        training_model.eval_with_prototypes(phase='test', openset=test_open)
+    training_model.eval(phase='test', openset=test_open)
 
     if output_logits:
         training_model.output_logits(openset=test_open)

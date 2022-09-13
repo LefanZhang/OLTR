@@ -4,6 +4,7 @@ import torch
 from sklearn.metrics import f1_score
 import importlib
 import pdb
+from tqdm import tqdm
 
 def source_import(file_path):
     """This function imports python module directly from source code using importlib"""
@@ -83,10 +84,10 @@ def F_measure(preds, labels, openset=False, theta=None):
         false_pos = 0.
         false_neg = 0.
         
-        for i in range(len(labels)):
-            true_pos += 1 if preds[i] == labels[i] and labels[i] != -1 else 0
-            false_pos += 1 if preds[i] != labels[i] and labels[i] != -1 else 0
-            false_neg += 1 if preds[i] != labels[i] and labels[i] == -1 else 0
+        for i in tqdm(range(len(labels))):
+            true_pos += 1 if preds[i] == labels[i] and labels[i] != -1 else 0   # F_measure to F_measure_for_CoMix
+            false_pos += 1 if preds[i] != labels[i] and labels[i] != -1 else 0  # known to known add unkonwn to known, i.e., add false_neg
+            false_neg += 1 if preds[i] != labels[i] and labels[i] == -1 else 0  # known to unknown
 
         precision = true_pos / (true_pos + false_pos)
         recall = true_pos / (true_pos + false_neg)
@@ -94,6 +95,49 @@ def F_measure(preds, labels, openset=False, theta=None):
     else:
         # Regular f1 score
         return f1_score(labels.detach().cpu().numpy(), preds.detach().cpu().numpy(), average='macro')
+
+
+def F_measure_of_LUNA(preds, labels, openset=False, theta=None):
+    
+    if openset:
+        # f1 score for openset evaluation
+        true_pos = 0.
+        false_pos = 0.
+        false_neg = 0.
+        
+        for i in tqdm(range(len(labels))):
+            true_pos += 1 if preds[i] == labels[i] else 0
+            false_pos += 1 if preds[i] != labels[i] and labels[i] != -1 and preds[i] != -1 else 0
+            false_neg += 1 if preds[i] == -1 and labels[i] != -1 else 0
+
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        return 2 * ((precision * recall) / (precision + recall + 1e-12))
+    else:
+        # Regular f1 score
+        return None
+
+
+def F_measure_of_CoMix(preds, labels, openset=False, theta=None):
+    
+    if openset:
+        # f1 score for openset evaluation
+        true_pos = 0.
+        false_pos = 0.
+        false_neg = 0.
+        
+        for i in tqdm(range(len(labels))):
+            true_pos += 1 if preds[i] == labels[i] and labels[i] != -1 else 0
+            false_pos += 1 if (preds[i] != labels[i] and labels[i] != -1 and preds[i] != -1) or (labels[i] == -1 and preds[i] != -1) else 0
+            false_neg += 1 if preds[i] == -1 and labels[i] != -1 else 0
+
+        precision = true_pos / (true_pos + false_pos)
+        recall = true_pos / (true_pos + false_neg)
+        return 2 * ((precision * recall) / (precision + recall + 1e-12))
+    else:
+        # Regular f1 score
+        return None
+
 
 def mic_acc_cal(preds, labels):
     acc_mic_top1 = (preds == labels).sum().item() / len(labels)

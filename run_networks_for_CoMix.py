@@ -416,9 +416,16 @@ class model ():
                 # if step == 20:
                 #     break
 
-                inputs = torch.cat((inputs, aug1, aug2, aug3), dim=0)
+                num_aug_to_use = len(self.training_opt['which_aug_to_use'])
+                if 1 in self.training_opt['which_aug_to_use']:
+                    inputs = torch.cat((inputs, aug1), dim=0)
+                if 2 in self.training_opt['which_aug_to_use']:
+                    inputs = torch.cat((inputs, aug2), dim=0)
+                if 3 in self.training_opt['which_aug_to_use']:
+                    inputs = torch.cat((inputs, aug3), dim=0)
+                # inputs = torch.cat((inputs, aug1, aug2, aug3), dim=0)
                 # print(labels.shape)
-                labels = labels.repeat(4)
+                labels = labels.repeat(num_aug_to_use+1)
 
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
 
@@ -731,6 +738,10 @@ class model ():
                                             self.total_labels[self.total_labels != -1])
         self.eval_f_measure = F_measure(preds, self.total_labels, openset=openset,
                                         theta=self.training_opt['open_threshold'])
+        self.eval_f_measure_of_LUNA = F_measure_of_LUNA(preds, self.total_labels, openset=openset,
+                                        theta=self.training_opt['open_threshold'])
+        self.eval_f_measure_of_CoMix = F_measure_of_CoMix(preds, self.total_labels, openset=openset,
+                                        theta=self.training_opt['open_threshold'])
         self.many_acc_top1, \
         self.median_acc_top1, \
         self.low_acc_top1 = shot_acc(preds[self.total_labels != -1],
@@ -747,6 +758,12 @@ class model ():
                      'Averaged F-measure: %.3f' 
                      % (self.eval_f_measure),
                      '\n',
+                     'F-measure of LUNA: %.3f' 
+                     % (self.eval_f_measure_of_LUNA) if self.eval_f_measure_of_LUNA else '',
+                     '\n' if self.eval_f_measure_of_LUNA else '',
+                     'F-measure of CoMix: %.3f' 
+                     % (self.eval_f_measure_of_CoMix) if self.eval_f_measure_of_CoMix else '',
+                     '\n' if self.eval_f_measure_of_CoMix else '',
                      'Many_shot_accuracy_top1: %.3f' 
                      % (self.many_acc_top1),
                      'Median_shot_accuracy_top1: %.3f' 

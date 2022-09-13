@@ -42,7 +42,7 @@ augmentation_randncls = [
     transforms.RandomApply([
         transforms.ColorJitter(0.4, 0.4, 0.4, 0.0)
     ], p=1.0),
-    rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(randaug_n, randaug_m), ra_params),
+    rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(randaug_n, randaug_m), ra_params), # only transform more than train
     transforms.ToTensor(),
     normalize,
 ]
@@ -52,8 +52,8 @@ augmentation_randnclsstack = [
     transforms.RandomApply([
         transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
     ], p=0.8),
-    transforms.RandomGrayscale(p=0.2),
-    rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(randaug_n, randaug_m), ra_params),
+    transforms.RandomGrayscale(p=0.2),  # transform more than train
+    rand_augment_transform('rand-n{}-m{}-mstd0.5'.format(randaug_n, randaug_m), ra_params), # transform more than train
     transforms.ToTensor(),
     normalize,
 ]
@@ -63,7 +63,7 @@ augmentation_sim = [
     transforms.RandomApply([
         transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
     ], p=0.8),
-    transforms.RandomGrayscale(p=0.2),
+    transforms.RandomGrayscale(p=0.2),  # only transform more than train
     transforms.ToTensor(),
     normalize
 ]

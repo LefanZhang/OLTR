@@ -17,7 +17,8 @@ training_opt['schedule_loss_weight'] = False
 training_opt['eval_with_prototypes'] = 1    # 0 for max, 1 for avg
 training_opt['discriminative_feature_space'] = True
 training_opt['balanced_feature_space'] = False
-training_opt['aug_for_psc'] = 3 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
+training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
+training_opt['which_aug_to_use'] = [1,2,3]    # 1 for aug1, 2 for aug2, 3 for aug3
 config['training_opt'] = training_opt
 
 networks = {}
@@ -42,13 +43,18 @@ perf_loss_param = {}
 #                                  'optim_params': None, 'weight': 1.0}
 criterions['PerformanceLoss'] = {'def_file': './loss/BalancedSoftmaxLoss.py', 'loss_params': perf_loss_param,
                                  'optim_params': None, 'weight': 1.0}
+
+
 # feat_loss_param = {'feat_dim': training_opt['feature_dim'], 'num_classes': training_opt['num_classes']}
 # feat_loss_optim_param = {'lr': 0.01, 'momentum': 0.9, 'weight_decay': 0.0005}
 # criterions['FeatureLoss'] = {'def_file': './loss/DiscCentroidsLoss.py', 'loss_params': feat_loss_param,
 #                              'optim_params': feat_loss_optim_param, 'weight': 0.01}
+
+
 psc_loss_param = {'temp': 0.1}
 criterions['PSCLoss'] = {'def_file': './loss/PSCLoss.py', 'loss_params': psc_loss_param,
-                        'optim_params': None, 'weight': 1.0}
+                        'optim_params': None, 'weight': 0.1}
+
 config['criterions'] = criterions
 
 memory = {}

@@ -19,6 +19,7 @@ training_opt['discriminative_feature_space'] = True
 training_opt['balanced_feature_space'] = False
 training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
 training_opt['which_aug_to_use'] = [1,2,3]    # 1 for aug1, 2 for aug2, 3 for aug3
+training_opt['pretrain'] = 30   # apply PSC Loss after 30 epochs
 config['training_opt'] = training_opt
 
 networks = {}
@@ -53,7 +54,7 @@ criterions['PerformanceLoss'] = {'def_file': './loss/BalancedSoftmaxLoss.py', 'l
 
 psc_loss_param = {'temp': 0.1}
 criterions['PSCLoss'] = {'def_file': './loss/PSCLoss.py', 'loss_params': psc_loss_param,
-                        'optim_params': None, 'weight': 0.1}
+                        'optim_params': None, 'weight': 1.0}
 
 config['criterions'] = criterions
 

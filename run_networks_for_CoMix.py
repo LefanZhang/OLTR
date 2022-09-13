@@ -102,6 +102,43 @@ class model ():
 
         
         return prototypes.to(self.device), class_count
+
+
+    def reinit_prototypes(self):
+        new_prototypes = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
+        class_count = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num']).to(self.device)
+
+
+        bar = tqdm(total=self.epoch_steps+1)
+        for step, (inputs, _, _, _, labels, _) in enumerate(self.data['train']):
+
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
+
+            # X enable gradients
+            with torch.set_grad_enabled(False):
+
+                    
+                features, _ = self.networks['feat_model'](inputs)
+                #print(features.shape)
+                for i, label in enumerate(labels):
+                    _, which_to_update = F.normalize(self.prototypes[label], dim=1).matmul(features[i]).max()
+                    new_prototypes[label][which_to_update] += features[i]
+                    class_count[label][which_to_update] += 1
+
+            bar.update(1)
+
+        if 0 in class_count:
+            zero_of_each_class = [(line==0).sum() for line in class_count]
+            print('Each class has some prototypes not reinited after pretrain:')
+            print(zero_of_each_class)
+            class_count = class_count.where(class_count==0, 1, class_count)
+                
+        new_prototypes /= class_count.view(-1, self.memory['prototypes_num'], 1)
+
+        new_prototypes = (F.normalize(new_prototypes, dim=2) + F.normalize(self.prototypes, dim=2)) / 2 # avg
+
+        
+        return new_prototypes
         
 
         
@@ -192,7 +229,7 @@ class model ():
 
 
 
-    def batch_forward_for_CoMix(self, inputs, labels=None, feature_ext=False, phase='train'):
+    def batch_forward_for_CoMix(self, inputs, labels=None, feature_ext=False, phase='train', epoch=None):
         '''
         This is a general single batch running function. 
         '''
@@ -216,8 +253,9 @@ class model ():
                 #     self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes).detach()
                 #     self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1)   # normalize to 1
                 # else:
-                self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes.view(-1, self.training_opt['feature_dim'])).detach()
-                self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1).view(self.training_opt['num_classes'], -1, self.training_opt['feature_dim'])   # normalize to 1
+                if epoch and epoch > self.training_opt['pretrain']:
+                    self.prototypes_mlp = self.networks['feat_model'].module.mlp(self.prototypes.view(-1, self.training_opt['feature_dim'])).detach()
+                    self.prototypes_mlp = F.normalize(self.prototypes_mlp, dim=1).view(self.training_opt['num_classes'], -1, self.training_opt['feature_dim'])   # normalize to 1
 
             # Calculate logits with classifier
             self.logits = self.networks['classifier'](self.features)
@@ -250,7 +288,7 @@ class model ():
             # Add feature loss to total loss
             self.loss += self.loss_feat
 
-    def batch_loss_for_CoMix(self, labels):
+    def batch_loss_for_CoMix(self, labels, epoch):
 
         # First, apply performance loss
         self.loss_perf = self.criterions['PerformanceLoss'](self.logits, labels) \
@@ -260,7 +298,7 @@ class model ():
         self.loss = self.loss_perf
 
 
-        if 'PSCLoss' in self.criterions.keys():
+        if 'PSCLoss' in self.criterions.keys() and epoch > self.training_opt['pretrain']:
             discriminative, balanced = self.training_opt['discriminative_feature_space'], self.training_opt['balanced_feature_space']
             
             self.probs = F.softmax(self.logits.detach(), dim=1) # only based on classifier, without prototypes
@@ -268,6 +306,8 @@ class model ():
             self.loss_psc = self.criterions['PSCLoss'](self.feat_mlp, labels, self.prototypes_mlp, self.probs, self.sample_per_class, discriminative, balanced)
             self.loss_psc = self.loss_psc * self.criterion_weights['PSCLoss']
             self.loss += self.loss_psc
+        else:
+            self.loss_psc = None
 
         # Apply loss on features if set up
         if 'FeatureLoss' in self.criterions.keys():
@@ -400,6 +440,10 @@ class model ():
             if self.training_opt['schedule_loss_weight']:
                 self.schedule_loss_weight(epoch, end_epoch)
 
+            if self.training_opt['pretrain']+1 == epoch:   # re-initiate prototypes
+                self.prototypes, _ = self.init_prototypes()
+                # self.prototypes = self.reinit_prototypes()
+
             for model in self.networks.values():
                 model.train()
                 
@@ -433,8 +477,8 @@ class model ():
                 with torch.set_grad_enabled(True):
                         
                     # If training, forward with loss, and no top 5 accuracy calculation
-                    self.batch_forward_for_CoMix(inputs, labels, phase='train')
-                    self.batch_loss_for_CoMix(labels)
+                    self.batch_forward_for_CoMix(inputs, labels, phase='train', epoch=epoch)
+                    self.batch_loss_for_CoMix(labels, epoch)
                     self.batch_backward()
 
 

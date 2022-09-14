@@ -13,7 +13,7 @@ import pdb
 
 class model ():
     
-    def __init__(self, config, data, test=False):
+    def __init__(self, config, data, test=False, open=False):
 
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.config = config
@@ -61,8 +61,10 @@ class model ():
         # Set up log file
         if not self.test_mode:
             self.log_file = os.path.join(self.training_opt['log_dir'], 'log.txt')
-        else:
+        elif not open:
             self.log_file = os.path.join(self.training_opt['log_dir'], 'log_test.txt')
+        else:
+            self.log_file = os.path.join(self.training_opt['log_dir'], 'log_test_open.txt')
         if os.path.isfile(self.log_file):
             os.remove(self.log_file)
     
@@ -121,7 +123,7 @@ class model ():
                 features, _ = self.networks['feat_model'](inputs)
                 #print(features.shape)
                 for i, label in enumerate(labels):
-                    _, which_to_update = F.normalize(self.prototypes[label], dim=1).matmul(features[i]).max()
+                    _, which_to_update = F.normalize(self.prototypes[label], dim=1).matmul(features[i]).max(dim=0)
                     new_prototypes[label][which_to_update] += features[i]
                     class_count[label][which_to_update] += 1
 
@@ -491,7 +493,10 @@ class model ():
 
                     # update prototypes after each iteration
                     if self.memory['prototypes']:
-                        self.update_prototypes(labels)
+                        if self.memory['update'] == 0:
+                            self.update_prototypes(labels)
+                        elif self.memory['update'] == 1:
+                            self.update_prototypes_new(labels)
 
 
                     # Output minibatch training results
@@ -500,7 +505,7 @@ class model ():
                         # minibatch_loss_feat = self.loss_feat.item() \
                         #     if 'FeatureLoss' in self.criterions.keys() else None
                         minibatch_loss_psc = self.loss_psc.item() \
-                            if 'PSCLoss' in self.criterions.keys() else None
+                            if ('PSCLoss' in self.criterions.keys() and self.loss_psc) else None
                         minibatch_loss_perf = self.loss_perf.item()
                         _, preds = torch.max(self.logits, 1)
                         minibatch_acc = mic_acc_cal(preds, labels)
@@ -531,6 +536,7 @@ class model ():
             if self.training_opt['eval_with_prototypes'] == 2:
                 self.eval(phase='val')
             else:
+                self.eval(phase='val')                  # if eval_with_prototypes works
                 self.eval_with_prototypes(phase='val')
 
             # Under validation, the best model need to be updated
@@ -573,6 +579,34 @@ class model ():
 
             print('{}/{} samples are used to update prototypes!'.format(sum([sum(line) for line in cls_num]), self.logits.shape[0]))
      
+        return
+
+
+    def update_prototypes_new(self, labels):
+        with torch.set_grad_enabled(False):
+            _, pred = torch.max(self.logits, dim=1)  # (batch_size)
+            mask = (pred.view(-1) == labels.view(-1))
+
+            cls_num = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'])
+            prototypes_for_update = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
+            
+            for i, feature in enumerate(self.features):
+                if not mask[i]:
+                    continue
+                _, which_to_update = F.normalize(self.prototypes[pred[i]], dim=1).mm(feature.view(-1, 1)).view(-1).max(dim=0)
+                prototypes_for_update[pred[i]][which_to_update] += feature
+                cls_num[pred[i]][which_to_update] += 1
+
+            for cls_idx in range(self.training_opt['num_classes']):
+                for pro_idx in range(self.memory['prototypes_num']):
+                    if cls_num[cls_idx][pro_idx]:
+                        self.prototypes[cls_idx][pro_idx] = F.normalize(self.prototypes[cls_idx][pro_idx], dim=0) * self.memory['ema'] + F.normalize(prototypes_for_update[cls_idx][pro_idx] / cls_num[cls_idx][pro_idx], dim=0) * (1 - self.memory['ema'])
+
+            print('{}/{} samples are used to update prototypes!'.format(mask.sum(), self.logits.shape[0]))
+            print('How many prototypes are updated per class:')
+            print((cls_num > 0).sum(dim=1))
+
+
         return
 
 
@@ -647,7 +681,7 @@ class model ():
                      % (self.low_acc_top1),
                      '\n']
 
-        if phase == 'val':
+        if phase == 'val' or phase == 'test':
             print_write(print_str, self.log_file)
         else:
             print(*print_str)
@@ -725,7 +759,7 @@ class model ():
                      % (self.low_acc_top1),
                      '\n']
 
-        if phase == 'val':
+        if phase == 'val' or phase == 'test':
             print_write(print_str, self.log_file)
         else:
             print(*print_str)
@@ -793,8 +827,9 @@ class model ():
                                         theta=self.training_opt['open_threshold'])
         self.eval_f_measure_of_LUNA = F_measure_of_LUNA(preds, self.total_labels, openset=openset,
                                         theta=self.training_opt['open_threshold'])
-        self.eval_f_measure_of_CoMix = F_measure_of_CoMix(preds, self.total_labels, openset=openset,
-                                        theta=self.training_opt['open_threshold'])
+        # self.eval_f_measure_of_CoMix = F_measure_of_CoMix(preds, self.total_labels, openset=openset,
+        #                                 theta=self.training_opt['open_threshold'])
+        self.eval_f_measure_of_CoMix = None
         self.many_acc_top1, \
         self.median_acc_top1, \
         self.low_acc_top1 = shot_acc(preds[self.total_labels != -1],
@@ -825,7 +860,7 @@ class model ():
                      % (self.low_acc_top1),
                      '\n']
 
-        if phase == 'val':
+        if phase == 'val' or phase == 'test':
             print_write(print_str, self.log_file)
         else:
             print(*print_str)

@@ -96,7 +96,7 @@ else:
             for x in ['train', 'test']}
 
     
-    training_model = model(config, data, test=True)
+    training_model = model(config, data, test=True, open=test_open)
     training_model.load_model_for_CoMix()
     # training_model.eval_for_CoMix(phase='test', openset=test_open)
     if relatin_opt['prototypes']:

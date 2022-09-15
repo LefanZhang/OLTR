@@ -10,6 +10,7 @@ import time
 import numpy as np
 import warnings
 import pdb
+import collections
 
 class model ():
     
@@ -129,11 +130,14 @@ class model ():
 
             bar.update(1)
 
+        mask = torch.where(class_count==0, 1, 0)
+        new_prototypes = new_prototypes + mask.view(self.training_opt['num_classes'], self.memory['prototypes_num'], 1) * self.prototypes
+
         if 0 in class_count:
-            zero_of_each_class = [(line==0).sum() for line in class_count]
+            zero_of_each_class = [(line==0).sum().cpu().item() for line in class_count]
             print('Each class has some prototypes not reinited after pretrain:')
             print(zero_of_each_class)
-            class_count = class_count.where(class_count==0, 1, class_count)
+            class_count = torch.where(class_count==0, torch.ones_like(class_count), class_count)
                 
         new_prototypes /= class_count.view(-1, self.memory['prototypes_num'], 1)
 
@@ -439,8 +443,11 @@ class model ():
 
         end_epoch = self.training_opt['num_epochs']
 
+
         # Loop over epochs
         for epoch in range(1, end_epoch + 1):
+
+            self.updated_times = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'])
 
             if self.training_opt['schedule_loss_weight']:
                 self.schedule_loss_weight(epoch, end_epoch)
@@ -584,6 +591,7 @@ class model ():
 
     def update_prototypes_new(self, labels):
         with torch.set_grad_enabled(False):
+
             _, pred = torch.max(self.logits, dim=1)  # (batch_size)
             mask = (pred.view(-1) == labels.view(-1))
 
@@ -591,20 +599,30 @@ class model ():
             prototypes_for_update = torch.zeros(self.training_opt['num_classes'], self.memory['prototypes_num'], self.training_opt['feature_dim']).to(self.device)
             
             for i, feature in enumerate(self.features):
-                if not mask[i]:
+                if self.memory['update_mode'] == 0 and not mask[i]:
                     continue
-                _, which_to_update = F.normalize(self.prototypes[pred[i]], dim=1).mm(feature.view(-1, 1)).view(-1).max(dim=0)
-                prototypes_for_update[pred[i]][which_to_update] += feature
-                cls_num[pred[i]][which_to_update] += 1
+                _, which_to_update = F.normalize(self.prototypes[labels[i]], dim=1).mm(feature.view(-1, 1)).view(-1).max(dim=0)
+                prototypes_for_update[labels[i]][which_to_update] += feature
+                cls_num[labels[i]][which_to_update] += 1
 
             for cls_idx in range(self.training_opt['num_classes']):
                 for pro_idx in range(self.memory['prototypes_num']):
                     if cls_num[cls_idx][pro_idx]:
                         self.prototypes[cls_idx][pro_idx] = F.normalize(self.prototypes[cls_idx][pro_idx], dim=0) * self.memory['ema'] + F.normalize(prototypes_for_update[cls_idx][pro_idx] / cls_num[cls_idx][pro_idx], dim=0) * (1 - self.memory['ema'])
 
-            print('{}/{} samples are used to update prototypes!'.format(mask.sum(), self.logits.shape[0]))
-            print('How many prototypes are updated per class:')
-            print((cls_num > 0).sum(dim=1))
+            if self.memory['update_mode'] == 0:
+                print('{}/{} samples are used to update prototypes!'.format(mask.sum(), self.logits.shape[0]))
+            elif self.memory['update_mode'] == 1:
+                print('All samples are used to update prototypes!')
+
+            # print('How many prototypes are updated per class:')
+            counter = collections.Counter((cls_num > 0).sum(dim=1).numpy().tolist())
+            for update_num in range(0, 5):
+                print('{} prototypes: {} classes!'.format(update_num, counter[update_num]))
+            self.updated_times += cls_num
+            print('From start, each prototype\'s updated times:')
+            print(self.updated_times.T)
+
 
 
         return

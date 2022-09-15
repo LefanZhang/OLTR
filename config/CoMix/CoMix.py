@@ -20,7 +20,7 @@ training_opt['balanced_feature_space'] = False
 training_opt['aug_for_psc'] = 1 # 0 for sim-sim, 1 for sim-rand, 2 for randstack-randstack, 3 for no aug for psc
 training_opt['which_aug_to_use'] = [1,2,3]    # 1 for aug1, 2 for aug2, 3 for aug3
 training_opt['pretrain'] = -1   # apply PSC Loss after 30 epochs
-training_opt['reinit'] = 0  # 0 for avg, 1 for replace, 2 for using init
+training_opt['reinit'] = 1  # 0 for avg, 1 for replace, 2 for using init
 config['training_opt'] = training_opt
 
 networks = {}
@@ -66,6 +66,7 @@ memory['prototypes'] = True
 memory['init_prototypes'] = True
 memory['prototypes_num'] = 4
 memory['update'] = 1    # 0 for update_prototypes, 1 for update_prototypes_new
+memory['update_mode'] = 1   # effective when update=1, 0 for use features with right prediction, 1 for use all
 memory['ema'] = 0.9 # default 0.9
 memory['std'] = 0.1 # default 0.1
 config['memory'] = memory

@@ -602,7 +602,7 @@ class model ():
                 if self.memory['update_mode'] == 0 and not mask[i]:
                     continue
                 _, which_to_update = F.normalize(self.prototypes[labels[i]], dim=1).mm(feature.view(-1, 1)).view(-1).max(dim=0)
-                prototypes_for_update[labels[i]][which_to_update] += feature
+                prototypes_for_update[labels[i]][which_to_update] += feature if not self.memory['normal_before_add'] else F.normalize(feature, dim=0)
                 cls_num[labels[i]][which_to_update] += 1
 
             for cls_idx in range(self.training_opt['num_classes']):

@@ -3,13 +3,11 @@ import torch
 import torch.nn.functional as F
 
 class PSCLoss(nn.Module):
-    def __init__(self, temp=0.1, eps=1e-3):
+    def __init__(self, temp=0.1):
         super(PSCLoss, self).__init__()
         self.temp = temp
-        self.eps = eps
-        print(self.eps)
     
-    def forward(self, feat, label, prototypes, probs, sample_per_class, discriminative, balanced):
+    def forward(self, feat, label, prototypes, probs, sample_per_class=None, discriminative=False, balanced=False):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         feat = F.normalize(feat, dim=1) # normalize to 1
         batch_size, feat_dim = feat.shape
@@ -19,8 +17,8 @@ class PSCLoss(nn.Module):
         # print(mask.shape)
 
         if discriminative:
-            # eps = 1e-3  # default 1e-3
-            GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + self.eps
+            eps = 1e-3
+            GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + eps
             # print(GT_probs)
             modified_probs = torch.where(probs > GT_probs, probs, GT_probs)
             # print(modified_probs)
@@ -31,20 +29,23 @@ class PSCLoss(nn.Module):
         if balanced:
             balanced_negative_weight = sample_per_class.view(1, -1).repeat(batch_size, 1).to(device)    # (batch_size, num_classes)
             balanced_positive_weight = (balanced_negative_weight * mask).sum(dim=1) # (batch_size)
-            # balanced_weight = balanced_positive_weight.view(-1, 1).repeat(1, num_classes) / balanced_negative_weight    # (batch_size, num_classes)
-            balanced_weight = balanced_negative_weight / balanced_positive_weight.view(-1, 1).repeat(1, num_classes)    # (batch_size, num_classes)
+            balanced_weight = balanced_positive_weight.view(-1, 1).repeat(1, num_classes) / balanced_negative_weight    # (batch_size, num_classes)
 
 
 
         # logits = feat.mm(prototypes.T) / self.temp    # (batch_size, num_classes)
         # print(logits)
 
-        logits, _ = torch.matmul(prototypes, feat.T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
-        # print(torch.matmul(prototypes, feat.T).permute(2, 0, 1))
+        logits = torch.matmul(prototypes, feat.T).permute(2, 0, 1)   # (batch_size, num_classes, k)
         logits = logits / self.temp
+        logits_max, _ = logits.max(dim=2)   # (batch_size, num_classes)
+
+        # print(torch.matmul(prototypes, feat.T).permute(2, 0, 1))
+        # print(logits)
         # print(logits)
 
-        positive_logits = torch.sum(logits*mask, dim=1) # (batch_size)
+        positive_logits = torch.sum(logits_max*mask, dim=1) # (batch_size)
+        # print(positive_logits)
         # print(positive_logits)
         # negative_logits = torch.sum(torch.exp(logits), dim=1)   # (batch_size)
         # print(negative_logits)
@@ -56,7 +57,10 @@ class PSCLoss(nn.Module):
         elif balanced:
             negative_logits = torch.sum(torch.exp(logits) * balanced_weight, dim=1)   # (batch_size), weighted with rebalancing
         else:
-            negative_logits = torch.sum(torch.exp(logits), dim=1)
+            # negative_logits = torch.sum(torch.exp(logits), dim=1)
+            GT_logits = torch.sum(logits*mask.unsqueeze(2), dim=1)  # (batch_size, k)
+            # print(GT_logits)
+            negative_logits = torch.sum(torch.exp(logits_max), dim=1) + torch.sum(torch.exp(GT_logits), dim=1) - torch.exp(positive_logits) # num_classes+k-1
 
         loss = - (positive_logits - torch.log(negative_logits)).mean()
 
@@ -65,9 +69,9 @@ class PSCLoss(nn.Module):
 
 
 
-def create_loss(temp=0.1, eps=1e-3):
+def create_loss(temp=0.1):
     print('Loading PSCLoss.')
-    return PSCLoss(temp, eps)
+    return PSCLoss(temp)
 
 if __name__ == '__main__':
     psc = create_loss()

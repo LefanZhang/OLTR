@@ -36,6 +36,7 @@ parser.add_argument('--test_open', default=False, action='store_true')
 parser.add_argument('--output_logits', default=False)
 parser.add_argument('--gpu', default=False, type=int)
 parser.add_argument('--trial', default=1, type=int)
+parser.add_argument('--resume', default=False, action='store_true')
 args = parser.parse_args()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
@@ -48,6 +49,8 @@ output_logits = args.output_logits
 
 config = source_import(args.config).config
 config['training_opt']['log_dir'] += '/trial_{}'.format(args.trial) # decide which experiment it is
+if args.resume:
+    config['training_opt']['log_dir'] += '_finetune'
 training_opt = config['training_opt']
 # change
 relatin_opt = config['memory']
@@ -77,8 +80,11 @@ if not test_mode:
             for x in (['train', 'val'])}
 
     training_model = model(config, data, test=False)
-
-    training_model.train_for_CoMix()
+    if args.resume:
+        training_model.load_model_for_CoMix(args.resume)
+        training_model.train_for_CoMix_resume()
+    else:
+        training_model.train_for_CoMix()
 
 else:
 
@@ -99,9 +105,12 @@ else:
     training_model = model(config, data, test=True, open=test_open)
     training_model.load_model_for_CoMix()
     # training_model.eval_for_CoMix(phase='test', openset=test_open)
-    if relatin_opt['prototypes']:
-        training_model.eval_with_prototypes(phase='test', openset=test_open)
-    training_model.eval(phase='test', openset=test_open)
+    if 'open' in config['networks']['classifier']['def_file']:
+        training_model.eval_open(phase='test', openset=test_open)
+    else:
+        if relatin_opt['prototypes']:
+            training_model.eval_with_prototypes(phase='test', openset=test_open)
+        training_model.eval(phase='test', openset=test_open)
 
     if output_logits:
         training_model.output_logits(openset=test_open)

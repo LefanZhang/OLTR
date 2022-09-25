@@ -23,10 +23,10 @@ class RandomCycleIter:
         
         if self.i == self.length:
             self.i = 0
-            if not self.test_mode:
+            if not self.test_mode:  # training
                 random.shuffle(self.data_list)
             
-        return self.data_list[self.i]
+        return self.data_list[self.i]   # which class to sample
     
 def class_aware_sample_generator (cls_iter, data_iter_list, n, num_samples_cls=1):
 
@@ -57,7 +57,7 @@ class ClassAwareSampler (Sampler):
         for i, label in enumerate(data_source.labels):
             cls_data_list[label].append(i)
         self.data_iter_list = [RandomCycleIter(x) for x in cls_data_list]
-        self.num_samples = max([len(x) for x in cls_data_list]) * len(cls_data_list)
+        self.num_samples = max([len(x) for x in cls_data_list]) * len(cls_data_list)    # class with maxm samples
         self.num_samples_cls = num_samples_cls
         
     def __iter__ (self):

@@ -3,11 +3,11 @@ import torch
 import torch.nn.functional as F
 
 class PSCLoss(nn.Module):
-    def __init__(self, temp=0.1, eps=1e-3):
+    def __init__(self, temp=10., eps=1e-3):
         super(PSCLoss, self).__init__()
-        self.temp = temp
+        self.temp = nn.Parameter(torch.tensor([temp]).cuda())
         self.eps = eps
-        print(self.eps)
+        # print(self.eps)
     
     def forward(self, feat, label, prototypes, probs, sample_per_class, discriminative, balanced):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -41,7 +41,9 @@ class PSCLoss(nn.Module):
 
         logits, _ = torch.matmul(prototypes, feat.T).permute(2, 0, 1).max(dim=2)   # (batch_size, num_classes)
         # print(torch.matmul(prototypes, feat.T).permute(2, 0, 1))
-        logits = logits / self.temp
+        logits = logits * self.temp
+        print('self.temp in dis0_trainable:')
+        print(self.temp)
         # print(logits)
 
         positive_logits = torch.sum(logits*mask, dim=1) # (batch_size)
@@ -65,8 +67,8 @@ class PSCLoss(nn.Module):
 
 
 
-def create_loss(temp=0.1, eps=1e-3):
-    print('Loading PSCLoss.')
+def create_loss(temp=10., eps=1e-3):
+    print('Loading PSCLoss dis 0 trainable.')
     return PSCLoss(temp, eps)
 
 if __name__ == '__main__':

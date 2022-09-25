@@ -3,13 +3,12 @@ import torch
 import torch.nn.functional as F
 
 class PSCLoss(nn.Module):
-    def __init__(self, temp=0.1, eps=1e-3):
+    def __init__(self, temp=0.1, gamma=1):
         super(PSCLoss, self).__init__()
         self.temp = temp
-        self.eps = eps
-        print(self.eps)
+        self.gamma = gamma
     
-    def forward(self, feat, label, prototypes, probs, sample_per_class, discriminative, balanced):
+    def forward(self, feat, label, prototypes, probs, sample_per_class, discriminative=False, balanced=False):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         feat = F.normalize(feat, dim=1) # normalize to 1
         batch_size, feat_dim = feat.shape
@@ -19,8 +18,8 @@ class PSCLoss(nn.Module):
         # print(mask.shape)
 
         if discriminative:
-            # eps = 1e-3  # default 1e-3
-            GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + self.eps
+            eps = 1e-3  # default 1e-3
+            GT_probs = (probs*mask).sum(dim=1).view(-1, 1).repeat(1, num_classes) + eps
             # print(GT_probs)
             modified_probs = torch.where(probs > GT_probs, probs, GT_probs)
             # print(modified_probs)
@@ -30,9 +29,12 @@ class PSCLoss(nn.Module):
         
         if balanced:
             balanced_negative_weight = sample_per_class.view(1, -1).repeat(batch_size, 1).to(device)    # (batch_size, num_classes)
-            balanced_positive_weight = (balanced_negative_weight * mask).sum(dim=1) # (batch_size)
+            balanced_GT_weight = (balanced_negative_weight * mask).sum(dim=1) # (batch_size)
             # balanced_weight = balanced_positive_weight.view(-1, 1).repeat(1, num_classes) / balanced_negative_weight    # (batch_size, num_classes)
-            balanced_weight = balanced_negative_weight / balanced_positive_weight.view(-1, 1).repeat(1, num_classes)    # (batch_size, num_classes)
+            # balanced_weight = balanced_negative_weight / balanced_positive_weight.view(-1, 1).repeat(1, num_classes)    # (batch_size, num_classes)
+            balanced_weight = max(sample_per_class) / balanced_GT_weight    # (batch_size)
+            balanced_weight = torch.pow(balanced_weight, self.gamma)
+            # print(balanced_weight)
 
 
 
@@ -49,25 +51,22 @@ class PSCLoss(nn.Module):
         # negative_logits = torch.sum(torch.exp(logits), dim=1)   # (batch_size)
         # print(negative_logits)
 
-        if discriminative and balanced:
-            negative_logits = torch.sum(torch.exp(logits) * weight * balanced_weight, dim=1)   # (batch_size), weighted with hard class mining and rebalancing
-        elif discriminative:
-            negative_logits = torch.sum(torch.exp(logits) * weight, dim=1)   # (batch_size), weighted with hard class mining
-        elif balanced:
-            negative_logits = torch.sum(torch.exp(logits) * balanced_weight, dim=1)   # (batch_size), weighted with rebalancing
-        else:
-            negative_logits = torch.sum(torch.exp(logits), dim=1)
 
-        loss = - (positive_logits - torch.log(negative_logits)).mean()
+        negative_logits = torch.sum(torch.exp(logits), dim=1)
+
+        if balanced:
+            loss = - ((positive_logits - torch.log(negative_logits)) * balanced_weight).mean()
+        else:
+            loss = - (positive_logits - torch.log(negative_logits)).mean()
 
         return loss
 
 
 
 
-def create_loss(temp=0.1, eps=1e-3):
+def create_loss(temp=0.1, gamma=1):
     print('Loading PSCLoss.')
-    return PSCLoss(temp, eps)
+    return PSCLoss(temp, gamma)
 
 if __name__ == '__main__':
     psc = create_loss()
@@ -81,6 +80,7 @@ if __name__ == '__main__':
                           [0.2, 0.4, 0, 0.1, 0.3], 
                           [0.4, 0, 0.3, 0.1, 0.2],
                           [0, 0.1, 0.4, 0.3, 0.2]])
-    loss = psc(feat, label, prototypes, probs)
+    sample_per_class = torch.tensor(range(1, num_classes+1))
+    loss = psc(feat, label, prototypes, probs, sample_per_class, balanced=True)
     print(loss)
 
